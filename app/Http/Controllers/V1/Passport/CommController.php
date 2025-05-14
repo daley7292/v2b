@@ -38,8 +38,7 @@ class CommController extends Controller
             abort(500, __('Email verification code has been sent, please request again later'));
         }
         $code = rand(100000, 999999);
-        $subject = config('v2board.app_name', 'V2Board') . __('Email verification code');
-
+        $subject = config('v2board.app_name', 'V2Board') . ' ' . '官网:' . config('v2board.app_url', '') . ' ' . __('Email verification code') . ':'.$code;
         SendEmailJob::dispatch([
             'email' => $email,
             'subject' => $subject,
@@ -51,7 +50,7 @@ class CommController extends Controller
             ]
         ]);
 
-        Cache::put(CacheKey::get('EMAIL_VERIFY_CODE', $email), $code, 300);
+        Cache::put(CacheKey::get('EMAIL_VERIFY_CODE', $email), $code, 1800);
         Cache::put(CacheKey::get('LAST_SEND_EMAIL_VERIFY_TIMESTAMP', $email), time(), 60);
         return response([
             'data' => true
