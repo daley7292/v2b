@@ -10,7 +10,9 @@ use App\Models\User;
 use App\Services\CouponService;
 use App\Services\OrderService;
 use App\Services\PaymentService;
+use App\Utils\Dict;
 use App\Utils\Helper;
+use App\Utils\CacheKey;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -57,6 +59,15 @@ class ShopController extends Controller
             }
         }
 
+        if ((int)config('v2board.email_whitelist_enable', 0)) {
+            if (!Helper::emailSuffixVerify(
+                $data['email'],
+                config('v2board.email_whitelist_suffix', Dict::EMAIL_WHITELIST_SUFFIX_DEFAULT))
+            ) {
+                abort(500, __('Email suffix is not in the Whitelist'));
+            }
+        }
+
         if ((int)config('v2board.email_gmail_limit_enable', 0)) {
             $prefix = explode('@', $data['email'])[0];
             if (strpos($prefix, '.') !== false || strpos($prefix, '+') !== false) {
@@ -64,6 +75,14 @@ class ShopController extends Controller
             }
         }
 
+        if ((int)config('v2board.email_verify', 0)) {
+            if (empty($data['email_code'])) {
+                abort(500, __('Email verification code cannot be empty'));
+            }
+            if ((string)Cache::get(CacheKey::get('EMAIL_VERIFY_CODE',$data['email_code'])) !== (string)$data['email_code']) {
+                abort(500, __('Incorrect email verification code'));
+            }
+        }
         if ((int)config('v2board.stop_register', 0)) {
             abort(500, __('Registration has closed'));
         }
