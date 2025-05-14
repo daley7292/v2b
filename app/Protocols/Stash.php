@@ -2,7 +2,6 @@
 
 namespace App\Protocols;
 
-use App\Utils\Helper;
 use Symfony\Component\Yaml\Yaml;
 
 class Stash
@@ -26,8 +25,8 @@ class Stash
         header('profile-update-interval: 24');
         header("content-disposition: filename*=UTF-8''".rawurlencode($appName));
         // 暂时使用clash配置文件，后续根据Stash更新情况更新
-        $defaultConfig = base_path() . '/resources/rules/default.stash.yaml';
-        $customConfig = base_path() . '/resources/rules/custom.stash.yaml';
+        $defaultConfig = base_path() . '/resources/rules/default.clash.yaml';
+        $customConfig = base_path() . '/resources/rules/custom.clash.yaml';
         if (\File::exists($customConfig)) {
             $config = Yaml::parseFile($customConfig);
         } else {
@@ -37,7 +36,14 @@ class Stash
         $proxies = [];
 
         foreach ($servers as $item) {
-            if ($item['type'] === 'shadowsocks') {
+            if ($item['type'] === 'shadowsocks'
+                && in_array($item['cipher'], [
+                    'aes-128-gcm',
+                    'aes-192-gcm',
+                    'aes-256-gcm',
+                    'chacha20-ietf-poly1305'
+                ])
+            ) {
                 array_push($proxy, self::buildShadowsocks($user['uuid'], $item));
                 array_push($proxies, $item['name']);
             }
@@ -45,20 +51,8 @@ class Stash
                 array_push($proxy, self::buildVmess($user['uuid'], $item));
                 array_push($proxies, $item['name']);
             }
-            if ($item['type'] === 'vless') {
-                array_push($proxy, self::buildVless($user['uuid'], $item));
-                array_push($proxies, $item['name']);
-            }
             if ($item['type'] === 'trojan') {
                 array_push($proxy, self::buildTrojan($user['uuid'], $item));
-                array_push($proxies, $item['name']);
-            }
-            if ($item['type'] === 'tuic') {
-                array_push($proxy, self::buildTuic($user['uuid'], $item));
-                array_push($proxies, $item['name']);
-            }
-            if ($item['type'] === 'hysteria') {
-                array_push($proxy, self::buildHysteria($user['uuid'], $item));
                 array_push($proxies, $item['name']);
             }
         }
@@ -96,35 +90,16 @@ class Stash
         return $yaml;
     }
 
-    public static function buildShadowsocks($password, $server)
+    public static function buildShadowsocks($uuid, $server)
     {
-        if ($server['cipher'] === '2022-blake3-aes-128-gcm') {
-            $serverKey = Helper::getServerKey($server['created_at'], 16);
-            $userKey = Helper::uuidToBase64($password, 16);
-            $password = "{$serverKey}:{$userKey}";
-        } elseif ($server['cipher'] === '2022-blake3-aes-256-gcm') {
-            $serverKey = Helper::getServerKey($server['created_at'], 32);
-            $userKey = Helper::uuidToBase64($password, 32);
-            $password = "{$serverKey}:{$userKey}";
-        }
         $array = [];
         $array['name'] = $server['name'];
         $array['type'] = 'ss';
         $array['server'] = $server['host'];
         $array['port'] = $server['port'];
         $array['cipher'] = $server['cipher'];
-        $array['password'] = $password;
+        $array['password'] = $uuid;
         $array['udp'] = true;
-        if (isset($server['obfs']) && $server['obfs'] === 'http') {
-            $array['plugin'] = 'obfs';
-            $plugin_opts = [
-                'mode' => 'http',
-            ];
-            if (isset($server['obfs-host']) && !empty($server['obfs-host'])) {
-                $plugin_opts['host'] = $server['obfs-host'];
-            }
-            $array['plugin-opts'] = $plugin_opts;
-        }
         return $array;
     }
 
@@ -152,10 +127,8 @@ class Stash
         }
         if ($server['network'] === 'tcp') {
             $tcpSettings = $server['networkSettings'];
-            if (isset($tcpSettings['header']['type']) && $tcpSettings['header']['type'] == 'http') {
-                $array['network'] = $tcpSettings['header']['type'];
-                if (isset($tcpSettings['header']['request']['headers']['Host'])) $array['http-opts']['headers']['Host'] = $tcpSettings['header']['request']['headers']['Host'];
-            }
+            if (isset($tcpSettings['header']['type'])) $array['network'] = $tcpSettings['header']['type'];
+            if (isset($tcpSettings['header']['request']['path'][0])) $array['http-opts']['path'] = $tcpSettings['header']['request']['path'][0];
         }
         if ($server['network'] === 'ws') {
             $array['network'] = 'ws';
@@ -170,9 +143,6 @@ class Stash
                     $array['ws-path'] = $wsSettings['path'];
                 if (isset($wsSettings['headers']['Host']) && !empty($wsSettings['headers']['Host']))
                     $array['ws-headers'] = ['Host' => $wsSettings['headers']['Host']];
-                if (isset($wsSettings['security'])) {
-                    $array['cipher'] = $wsSettings['security'];
-                }
             }
         }
         if ($server['network'] === 'grpc') {
@@ -187,69 +157,6 @@ class Stash
         return $array;
     }
 
-    public static function buildVless($uuid, $server)
-    {
-        $array = [];
-        $array['name'] = $server['name'];
-        $array['type'] = 'vless';
-        $array['server'] = $server['host'];
-        $array['port'] = $server['port'];
-        $array['uuid'] = $uuid;
-        $array['flow'] = $server['flow'] ?? null;
-        $array['udp'] = true;
-
-        if ($server['tls']) {
-            $array['tls'] = true;
-            if ($server['tls_settings']) {
-                $tlsSettings = $server['tls_settings'];
-                if (isset($tlsSettings['server_name']) && !empty($tlsSettings['server_name']))
-                   $array['servername'] = $tlsSettings['server_name'];
-                if ($server['tls'] == 2) {
-                   $array['reality-opts'] = [];
-                   $array['reality-opts']['public-key'] = $tlsSettings['public_key'];
-                   $array['reality-opts']['short-id'] = $tlsSettings['short_id'];
-                }
-                $array['skip-cert-verify'] = $tlsSettings['allow_insecure'] ? true : false;
-                $array['client-fingerprint'] = $tlsSettings['fingerprint'] ?? null;
-            }
-        }
-
-        if ($server['network'] === 'tcp') {
-            $tcpSettings = $server['network_settings'];
-            if (isset($tcpSettings['header']['type']) && $tcpSettings['header']['type'] == 'http') {
-                $array['network'] = $tcpSettings['header']['type'];
-                if (isset($tcpSettings['header']['request']['headers']['Host'])) $array['http-opts']['headers']['Host'] = $tcpSettings['header']['request']['headers']['Host'];
-                if (isset($tcpSettings['header']['request']['path'][0])) $array['http-opts']['path'] = $tcpSettings['header']['request']['path'][0];
-            }
-        }
-
-        if ($server['network'] === 'ws') {
-            $array['network'] = 'ws';
-            if ($server['network_settings']) {
-                $wsSettings = $server['network_settings'];
-                $array['ws-opts'] = [];
-                if (isset($wsSettings['path']) && !empty($wsSettings['path']))
-                    $array['ws-opts']['path'] = $wsSettings['path'];
-                if (isset($wsSettings['headers']['Host']) && !empty($wsSettings['headers']['Host']))
-                    $array['ws-opts']['headers'] = ['Host' => $wsSettings['headers']['Host']];
-                if (isset($wsSettings['path']) && !empty($wsSettings['path']))
-                    $array['ws-path'] = $wsSettings['path'];
-                if (isset($wsSettings['headers']['Host']) && !empty($wsSettings['headers']['Host']))
-                    $array['ws-headers'] = ['Host' => $wsSettings['headers']['Host']];
-            }
-        }
-        if ($server['network'] === 'grpc') {
-            $array['network'] = 'grpc';
-            if ($server['network_settings']) {
-                $grpcSettings = $server['network_settings'];
-                $array['grpc-opts'] = [];
-                if (isset($grpcSettings['serviceName'])) $array['grpc-opts']['grpc-service-name'] = $grpcSettings['serviceName'];
-            }
-        }
-
-        return $array;
-    }
-    
     public static function buildTrojan($password, $server)
     {
         $array = [];
@@ -259,94 +166,8 @@ class Stash
         $array['port'] = $server['port'];
         $array['password'] = $password;
         $array['udp'] = true;
-        if(isset($server['network']) && in_array($server['network'], ["grpc", "ws"])){
-            $array['network'] = $server['network'];
-            // grpc配置
-            if($server['network'] === "grpc" && isset($server['network_settings']['serviceName'])) {
-                $array['grpc-opts']['grpc-service-name'] = $server['network_settings']['serviceName'];
-            }
-            // ws配置
-            if($server['network'] === "ws") {
-                if(isset($server['network_settings']['path'])) {
-                    $array['ws-opts']['path'] = $server['network_settings']['path'];
-                }
-                if(isset($server['network_settings']['headers']['Host'])){
-                    $array['ws-opts']['headers']['Host'] = $server['network_settings']['headers']['Host'];
-                }
-            }
-        };
         if (!empty($server['server_name'])) $array['sni'] = $server['server_name'];
         if (!empty($server['allow_insecure'])) $array['skip-cert-verify'] = ($server['allow_insecure'] ? true : false);
-        return $array;
-    }
-
-    public static function buildTuic($password, $server)
-    {
-        $array = [
-            'name' => $server['name'],
-            'type' => 'tuic',
-            'server' => $server['host'],
-            'port' => $server['port'],
-            'version' => 5,
-            'uuid' => $password,
-            'password' => $password,
-            'alpn' => ['h3'],
-            //'disable-sni' => $server['disable_sni'] ? true : false,
-            //'reduce-rtt' => $server['zero_rtt_handshake'] ? true : false,
-            //'udp-relay-mode' => $server['udp_relay_mode'] ?? 'native',
-            //congestion-controller' => $server['congestion_control'] ?? 'cubic',
-            'skip-cert-verify' => $server['insecure'] ? true : false,
-        ];
-        if (isset($server['server_name'])) {
-            $array['sni'] = $server['server_name'];
-        }
-
-        return $array;
-    }
-
-    public static function buildHysteria($password, $server)
-    {
-        $array = [];
-        $array['name'] = $server['name'];
-        $array['server'] = $server['host'];
-
-        $parts = explode(",", $server['port']);
-        $firstPart = $parts[0];
-        if (strpos($firstPart, '-') !== false) {
-            $range = explode('-', $firstPart);
-            $firstPort = $range[0];
-        } else {
-            $firstPort = $firstPart;
-        }
-        $array['port'] = (int)$firstPort;
-        if (count($parts) !== 1 || strpos($parts[0], '-') !== false) {
-            $array['ports'] = $server['port'];
-            $array['mport'] = $server['port'];   
-        }
-        $array['udp'] = true;
-        $array['skip-cert-verify'] = $server['insecure'] == 1 ? true : false;
-
-        if (isset($server['server_name'])) $array['sni'] = $server['server_name'];
-
-        if ($server['version'] === 2) {
-            $array['type'] = 'hysteria2';
-            $array['auth'] = $password;
-            if (isset($server['obfs'])){
-                $array['obfs'] = $server['obfs'];
-                $array['obfs-password'] = $server['obfs_password'];
-            }
-        } else {
-            $array['type'] = 'hysteria';
-            $array['auth_str'] = $password;
-            if (isset($server['obfs']) && isset($server['obfs_password'])){
-                $array['obfs'] = $server['obfs_password'];
-            }
-            //Todo:完善客户端上下行
-            $array['up'] = $server['down_mbps'];
-            $array['down'] = $server['up_mbps'];
-            $array['protocol'] = 'udp';
-        }
-
         return $array;
     }
 
