@@ -45,10 +45,14 @@
     "The maximum number of creations has been reached": "已达到创建数量上限",
     "Coupon cannot be empty": "优惠券不能为空",
     "This coupon is no longer available": "优惠券已无可用次数",
+    "This coupon can only be used once": "兑换码配置错误",
+    "This redemption code is no longer valid": "该兑换码已使用",
     "This coupon has not yet started": "优惠券还未到可用时间",
     "This coupon has expired": "优惠券已过期",
     "The coupon code cannot be used for this subscription": "该订阅无法使用此优惠码",
     "Invalid coupon": "优惠券无效",
+    "Code does not exist": "兑换码不存在",
+    "The coupon name does not start with dhm": "兑换码不存在",
     "Invalid code is incorrect": "验证码有误",
     "Email suffix is not in the Whitelist": "邮箱后缀不处于白名单中",
     "Gmail alias is not supported": "不支持 Gmail 别名邮箱",
@@ -94,6 +98,5 @@
     "Login to :name": "登入到 :name",
     "Sending frequently, please try again later": "发送频繁，请稍后再试",
     "Current product is sold out": "当前商品已售罄",
-    "There are too many password errors, please try again after :minute minutes.": "密码错误次数过多，请 :minute 分钟后再试",
-    "Reset failed, Please try again later": "重置失败，请稍后再试"
+    "There are too many password errors, please try again after :minute minutes.": "密码错误次数过多，请 :minute 分钟后再试"
 }
