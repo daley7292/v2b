@@ -46,6 +46,8 @@
     "Coupon cannot be empty": "优惠券不能为空",
     "This coupon is no longer available": "优惠券已无可用次数",
     "This coupon can only be used once": "兑换码配置错误",
+    "This coupon can only be used for one specific plan": "兑换码配置错误",
+    "This coupon can only be used for one specific period": "兑换码配置错误",
     "This redemption code is no longer valid": "该兑换码已使用",
     "This coupon has not yet started": "优惠券还未到可用时间",
     "This coupon has expired": "优惠券已过期",
