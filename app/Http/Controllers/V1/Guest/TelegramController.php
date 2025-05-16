@@ -91,9 +91,9 @@ class TelegramController extends Controller
         }
         if (isset($data['message']['from'])) {
             $obj->from = (object) [
-            	'id' => $data['message']['from']['id'] ?? null,
-            	'username' => $data['message']['from']['username'] ?? null,
-            	'first_name' => $data['message']['from']['first_name'] ?? null,
+                'id' => $data['message']['from']['id'] ?? null,
+                'username' => $data['message']['from']['username'] ?? null,
+                'first_name' => $data['message']['from']['first_name'] ?? null,
             ];
         }
 
