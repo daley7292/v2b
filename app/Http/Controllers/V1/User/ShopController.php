@@ -20,29 +20,9 @@ use Illuminate\Support\Facades\Http;
 
 class ShopController extends Controller
 {
-    private $turnstileSecretKey = ''; // 填写你的 secret key 填写后后端将强制验证 Turnstile_token
-
     public function order(Request $request)
     {
         $data = $request->all();
-
-        // 设置了 secret key，就必须验证 Turnstile
-        if ($this->turnstileSecretKey) {
-            if (!$request->has('turnstile_token')) {
-                abort(400, __('Human verification required'));
-            }
-
-            $response = Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
-                'secret' => $this->turnstileSecretKey,
-                'response' => $request->input('turnstile_token'),
-                'remoteip' => $request->ip()
-            ]);
-
-            if (!$response->successful() || !$response->json('success')) {
-                abort(400, __('Human verification failed'));
-            }
-        }
-
         $inviter_id = null;
         if (isset($data['invite_code']) && !empty($data['invite_code'])) {
             try {
@@ -80,7 +60,7 @@ class ShopController extends Controller
             if (empty($data['email_code'])) {
                 abort(500, __('Email verification code cannot be empty'));
             }
-            if ((string)Cache::get(CacheKey::get('EMAIL_VERIFY_CODE',$data['email_code'])) !== (string)$data['email_code']) {
+            if ((string)Cache::get(CacheKey::get('EMAIL_VERIFY_CODE',$data['email'])) !== (string)$data['email_code']) {
                 abort(500, __('Incorrect email verification code'));
             }
         }
