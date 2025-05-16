@@ -23,7 +23,12 @@ rules:
   # Google 中国服务
   - DOMAIN-SUFFIX,services.googleapis.cn,SELECT
   - DOMAIN-SUFFIX,xn--ngstr-lra8j.com,SELECT
-
+  - DOMAIN-KEYWORD,dns,SELECT
+  - DOMAIN-KEYWORD,leak,SELECT
+  - DOMAIN-KEYWORD,ip,SELECT
+  - DOMAIN-KEYWORD,astrill,SELECT
+  - DOMAIN-KEYWORD,who,SELECT
+  - DOMAIN-KEYWORD,vpn,SELECT
   # Apple
   - DOMAIN,safebrowsing.urlsec.qq.com,DIRECT # 如果您并不信任此服务提供商或防止其下载消耗过多带宽资源，可以进入 Safari 设置，关闭 Fraudulent Website Warning 功能，并使用 REJECT 策略。
   - DOMAIN,safebrowsing.googleapis.com,DIRECT # 如果您并不信任此服务提供商或防止其下载消耗过多带宽资源，可以进入 Safari 设置，关闭 Fraudulent Website Warning 功能，并使用 REJECT 策略。
