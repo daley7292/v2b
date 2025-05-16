@@ -106,10 +106,22 @@ class ApiController extends Controller
         if ($inviteCode) {
             $user->invite_user_id = $inviteCode->user_id ? $inviteCode->user_id : null;
         }
+        //试用
+        if ((int)config('v2board.try_out_plan_id', 0)) {
+            $plan = Plan::find(config('v2board.try_out_plan_id'));
+            if ($plan) {
+                $user->transfer_enable = $plan->transfer_enable * 1073741824;
+                $user->plan_id = $plan->id;
+                $user->group_id = $plan->group_id;
+                $user->expired_at = time() + (config('v2board.try_out_hour', 1) * 3600);
+                $user->speed_limit = $plan->speed_limit;
+            }
+        }
         if (!$user->save()) {
             DB::rollBack();
             abort(500, __('Register failed'));
         }
+
         //订单
         if ($code) {
             $redemptionCodeService = new RedemptionCodeService();
