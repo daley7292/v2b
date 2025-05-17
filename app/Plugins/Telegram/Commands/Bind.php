@@ -7,7 +7,7 @@ use App\Plugins\Telegram\Telegram;
 
 class Bind extends Telegram {
     public $command = '/bind';
-    public $description = '将Telegram账号绑定到网站';
+    public $description = '通过订阅链接绑定账户，例如：/bind https://xxx.com/api/v1/client/subscribe?token=xxx';
 
     public function handle($message, $match = []) {
         if (!$message->is_private) return;
