@@ -11,7 +11,7 @@ use DateInterval;
 use DatePeriod;
 use DateTimeZone;
 
-class TodayStat extends Telegram
+class IncomeStat extends Telegram
 {
     public $command = '/income';
     public $description = '获取指定日期或最近N日的收款统计，例如：/income、/income 2025-05-01、/today last3';
