@@ -1,0 +1,38 @@
+{
+  "name": "v2board",
+  "description": "version >= [1.7.4]",
+  "version": "1.1.4",
+  "images": "https://assets.imgix.net/unsplash/hotairballoon.jpg?w=1280&amp;h=853&amp;fit=crop&amp;crop=right",
+  "configs": [
+    {
+      "label": "默认语言",
+      "placeholder": "请选择默认语言",
+      "field_name": "theme_default_i18n",
+      "field_type": "select",
+      "select_options": {
+        "zh-CN": "简体中文"
+      },
+      "default_value": "zh-CN"
+    },
+    {
+      "label": "主题色",
+      "placeholder": "请选择主题颜色",
+      "field_name": "theme_color",
+      "field_type": "input",
+      "default_value": "#3b5998"
+    },
+    {
+      "label": "授权码",
+      "placeholder": "请输入授权码",
+      "field_name": "theme_via",
+      "field_type": "input",
+      "default_value": "800e7d4a420094e8c376f6f1f7043162LH0Yf="
+    },
+    {
+      "label": "自定义页脚(实现客服JS代码插入等)",
+      "placeholder": "自定义js代码",
+      "field_name": "custom_html",
+      "field_type": "textarea"
+    }
+  ]
+}
