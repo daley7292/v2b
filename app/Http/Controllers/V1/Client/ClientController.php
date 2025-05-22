@@ -24,6 +24,21 @@ class ClientController extends Controller
         if ($userService->isAvailable($user)) {
             $serverService = new ServerService();
             $servers = $serverService->getAvailableServers($user);
+            if($platform===''){
+                $servers = array_filter($servers, function($server) {
+                    if (isset($server['tags']) && is_array($server['tags'])) {
+                        return in_array('WEB', $server['tags']) || in_array('dflt', $server['tags']);
+                    }
+                    return false;
+                });
+            }else{
+                $servers = array_filter($servers, function($server) use ($platform) {
+                    if (isset($server['tags']) && is_array($server['tags'])) {
+                        return in_array($platform, $server['tags']);
+                    }
+                    return false;
+                });
+            }
             $this->setSubscribeInfoToServers($servers, $user);
             $servers = $this->filterServers($servers, $request);
         } else {
