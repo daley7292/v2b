@@ -8,6 +8,12 @@ class ClientRoute
     public function map(Registrar $router)
     {
         $router->group([
+            'prefix' => 'client'
+        ], function ($router) {
+            // 新增无需验证的订阅接口
+            $router->get('/getuuidSubscribe', 'Client\\ClientController@getuuidSubscribe');
+        });
+        $router->group([
             'prefix' => 'client',
             'middleware' => 'client'
         ], function ($router) {

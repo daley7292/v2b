@@ -125,4 +125,44 @@ class ClientController extends Controller
         });
         return $servers;
     }
+
+    public function getuuidSubscribe(Request $request)  {
+        $user = User::where([
+            'email' => $request->query('email'),
+            'uuid' => $request->query('uuid')
+        ])->first();
+    
+        if (!$user) {
+            return response()->json([
+                'message' => '用户不存在'
+            ], 404);
+        }
+        $user = User::where('id', $user->id)
+        ->select([
+            'plan_id',
+            'token',
+            'expired_at',
+            'u',
+            'd',
+            'transfer_enable',
+            'email',
+            'uuid'
+        ])
+        ->first();
+        if (!$user) {
+            abort(500, __('The user does not exist'));
+        }
+        if ($user->plan_id) {
+            $user['plan'] = Plan::find($user->plan_id);
+            if (!$user['plan']) {
+                abort(500, __('Subscription plan does not exist'));
+            }
+        }
+        $user['subscribe_url'] = Helper::getSubscribeUrl("/api/v1/client/subscribe?token={$user['token']}");
+        $userService = new UserService();
+        $user['reset_day'] = $userService->getResetDay($user);
+        return response([
+            'data' => $user
+        ]);
+    }
 }
