@@ -15,7 +15,7 @@ class UserUpdate extends FormRequest
     {
         return [
             'email' => 'required|email:strict',
-            'password' => 'nullable|min:8',
+            'password' => 'nullable|min:4',
             'transfer_enable' => 'numeric',
             'expired_at' => 'nullable|integer',
             'banned' => 'required|in:0,1',

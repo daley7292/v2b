@@ -29,7 +29,7 @@ class ApiController extends Controller
     {
         $request->validate([
             'email' => 'required|email',
-            'password' => ['required', 'string', 'min:8'],  // 密码必须至少8位
+            'password' => ['required', 'string', 'min:4'],  // 密码必须至少8位
         ], [
             'email.required' => '邮箱地址不能为空',
             'email.email' => '邮箱格式不正确',

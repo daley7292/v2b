@@ -89,7 +89,7 @@ class ConfigSave extends FormRequest
         'register_limit_by_ip_enable' => 'in:0,1',
         'register_limit_count' => 'integer',
         'register_limit_expire' => 'integer',
-        'secure_path' => 'min:8|regex:/^[\w-]*$/',
+        'secure_path' => 'min:4|regex:/^[\w-]*$/',
         'password_limit_enable' => 'in:0,1',
         'password_limit_count' => 'integer',
         'password_limit_expire' => 'integer',

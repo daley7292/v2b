@@ -15,7 +15,7 @@ class AuthForget extends FormRequest
     {
         return [
             'email' => 'required|email:strict',
-            'password' => 'required|min:8',
+            'password' => 'required|min:4',
             'email_code' => 'required'
         ];
     }
