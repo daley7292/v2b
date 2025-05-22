@@ -11,7 +11,7 @@ class ClientRoute
             'prefix' => 'client'
         ], function ($router) {
             // 新增无需验证的订阅接口
-            $router->get('/getuuidSubscribe', 'Client\\ClientController@getuuidSubscribe');
+            $router->get('/getuuidSubscribe', 'V1\\Client\\ClientController@getuuidSubscribe');
         });
         $router->group([
             'prefix' => 'client',
