@@ -9,6 +9,8 @@ use App\Protocols\Singbox\SingboxOld;
 use App\Services\ServerService;
 use App\Services\UserService;
 use App\Utils\Helper;
+use App\Models\Plan;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class ClientController extends Controller
