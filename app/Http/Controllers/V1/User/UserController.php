@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\Plan;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Models\Coupon;
 use App\Services\AuthService;
 use App\Services\UserService;
 use App\Services\RedemptionCodeService;
@@ -19,6 +20,7 @@ use App\Services\TelegramService;
 use App\Utils\CacheKey;
 use App\Utils\Helper;
 use App\Jobs\OrderHandleJob;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -244,39 +246,22 @@ class UserController extends Controller
     }
     public function redeemPlan(Request $request)
     {
-        if (!$request->has('redeem_code') || empty($request->input('redeem_code'))) {
-            return response([
-                'data' => [
-                    'state' => false,
-                    'msg' => '兑换码不能为空'
-                ]
-            ], 400);
-        }
-        
-        // 获取用户并验证
+        //兑换码验证
+        $code=$request->input('redeem_code');
         $user_id = $request->user['id'];
         $user = User::find($user_id);
         if (!$user) {
-            return response([
-                'data' => [
-                    'state' => false,
-                    'msg' => '用户不存在'
-                ]
-            ], 404);
+            abort(500, __('The user does not exist'));
         }
-        //兑换码验证
         $redemptionCodeService = new RedemptionCodeService();
         $redeemData = $redemptionCodeService->validate($code);
-        
         $plan = Plan::find($redeemData['plan_id']);
         if (!$plan) {
             abort(500, __('Subscription plan does not exist'));
         }
-
         if ((!$plan->show && !$plan->renew) || (!$plan->show && $user->plan_id !== $plan->id)) {
             abort(500, __('This subscription has been sold out, please choose another subscription'));
         }
-
         if ($plan[$redeemData['period']] === NULL) {
             abort(500, __('This payment period cannot be purchased, please choose another cycle'));
         }
@@ -304,6 +289,12 @@ class UserController extends Controller
         OrderHandleJob::dispatchNow($order->trade_no);
         $this->notify($order);
         DB::commit();
+        return response([
+            'data' => [
+                'state' => true,
+                'msg' => '兑换成功'
+            ]
+        ]);
     }
     private function notify(Order $order)
     {
