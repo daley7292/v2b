@@ -19,10 +19,10 @@ class ConfigService {
                 'gift_plan' => config('v2board.gift_plan',0),
                 'gift_hour' => config('v2board.gift_hour',0),
                 'gift_mode' => config('v2board.gift_mode',0),
-                'invite_force_present' => config('v2board.invite_force_present',0),
-                'complimentary_packages' => config('v2board.complimentary_packages',0),
-                'complimentary_package_duration' => config('v2board.complimentary_package_duration',0),
-                'is_Invitation_to_give' => config('v2board.is_Invitation_to_give',0),
+                'invite_force_present' => (int)config('v2board.invite_force_present', 0),  //用户邀请注册赠送功能是否开启
+                'complimentary_packages' => (int)config('v2board.complimentary_packages', 0),  //邀请用户购买可选择赠送的套餐  传入套餐ID
+                'complimentary_package_duration' => (int)config('v2board.complimentary_package_duration', 0),  //设置赠送时常 单位H
+                'is_Invitation_to_give' => (int)config('v2board.is_Invitation_to_give', 0),  //设置赠送时常 单位H
                 'commission_first_time_enable' => config('v2board.commission_first_time_enable', 1),
                 'commission_auto_check_enable' => config('v2board.commission_auto_check_enable', 1),
                 'commission_withdraw_limit' => config('v2board.commission_withdraw_limit', 100),
