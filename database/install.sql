@@ -202,6 +202,19 @@ CREATE TABLE `v2_plan` (
                            PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+DROP TABLE IF EXISTS `v2_rule`;
+CREATE TABLE `v2_rule` (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) DEFAULT NULL,
+  `sort` int(11) DEFAULT 0 COMMENT '排序',
+  `port` int(11) DEFAULT NULL COMMENT '端口',
+  `domain` varchar(255) DEFAULT NULL COMMENT '要替换的域名',
+  `ua` varchar(255) NOT NULL COMMENT 'ua匹配信息',
+  `server_arr` varchar(255) DEFAULT NULL COMMENT '用逗号分割分组id',
+  `created_at` int(11) NOT NULL,
+  `updated_at` int(11) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 DROP TABLE IF EXISTS `v2_server_group`;
 CREATE TABLE `v2_server_group` (
