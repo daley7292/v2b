@@ -78,6 +78,19 @@ CHANGE `quarter_price` `quarter_price` int(11) NULL DEFAULT '0' AFTER `month_pri
 CHANGE `half_year_price` `half_year_price` int(11) NULL DEFAULT '0' AFTER `quarter_price`,
 CHANGE `year_price` `year_price` int(11) NULL DEFAULT '0' AFTER `half_year_price`;
 
+CREATE TABLE `v2_rule`  (
+                            `id` int NOT NULL AUTO_INCREMENT,
+                            `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci NULL DEFAULT NULL,
+                            `sort` int NULL DEFAULT 0 COMMENT '排序',
+                            `port` int NULL DEFAULT NULL COMMENT '端口',
+                            `domain` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci NULL DEFAULT NULL COMMENT '要替换的域名',
+                            `ua` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci NOT NULL COMMENT 'ua匹配信息',
+                            `server_arr` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci NULL DEFAULT NULL COMMENT '用逗号分割分组id',
+                            `created_at` int NOT NULL,
+                            `updated_at` int NOT NULL,
+                            PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_uca1400_ai_ci ROW_FORMAT = DYNAMIC;
+
 ALTER TABLE `v2_server`
 ADD `parent_id` int(11) NULL AFTER `group_id`;
 
