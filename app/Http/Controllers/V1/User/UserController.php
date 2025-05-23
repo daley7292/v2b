@@ -236,4 +236,8 @@ class UserController extends Controller
             'data' => $url
         ]);
     }
+    public function redeemPlan(Request $request)
+    {
+        
+    }
 }
