@@ -24,6 +24,7 @@ class ConfigSave extends FormRequest
         'commission_distribution_l1' => 'nullable|numeric',
         'commission_distribution_l2' => 'nullable|numeric',
         'commission_distribution_l3' => 'nullable|numeric',
+        'is_Invitation_to_give' =>'in:0,1,2,3',
         'invite_force_present' =>'in:0,1',
         'complimentary_packages' => 'integer',
         'complimentary_package_duration' => 'integer',
