@@ -69,7 +69,9 @@ class ConfigController extends Controller
     public function fetch(Request $request)
     {
         $key = $request->input('key');
+        $plans = Plan::orderBy('sort', 'ASC')->get();
         $data = (new ConfigService)->getDefaultConfig();
+        $data['invite']['plans']=$plans;
         if ($key && isset($data[$key])) {
             return response([
                 'data' => [
@@ -77,7 +79,6 @@ class ConfigController extends Controller
                 ]
             ]);
         };
-        // TODO: default should be in Dict
         return response([
             'data' => $data
         ]);
