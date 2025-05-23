@@ -10,6 +10,7 @@ use App\Http\Requests\Admin\UserUpdate;
 use App\Jobs\SendEmailJob;
 use App\Models\Plan;
 use App\Models\User;
+use App\Models\UserDel;
 use App\Services\AuthService;
 use App\Utils\Helper;
 use Illuminate\Http\Request;
