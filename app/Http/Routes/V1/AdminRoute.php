@@ -73,6 +73,16 @@ class AdminRoute
                 $router->post('update', 'V1\\Admin\\Server\\VlessController@update');
                 $router->post('copy', 'V1\\Admin\\Server\\VlessController@copy');
             });
+            $router->group([
+                'prefix' => 'server/rule'
+            ], function ($router) {
+                $router->get ('fetch', 'V1\\Admin\\Server\\RuleController@fetch');
+                $router->post('save', 'V1\\Admin\\Server\\RuleController@save');
+                $router->post('drop', 'V1\\Admin\\Server\\RuleController@drop');
+                $router->post('update', 'V1\\Admin\\Server\\RuleController@update');
+                $router->post('copy', 'V1\\Admin\\Server\\RuleController@copy');
+                $router->post('sort', 'V1\\Admin\\Server\\RuleController@sort');
+            });
             // Order
             $router->get ('/order/fetch', 'V1\\Admin\\OrderController@fetch');
             $router->post('/order/update', 'V1\\Admin\\OrderController@update');
