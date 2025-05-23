@@ -104,14 +104,14 @@ class AdminRoute
             $router->get ('/stat/getStat', 'V1\\Admin\\StatController@getStat');
             $router->get ('/stat/getOverride', 'V1\\Admin\\StatController@getOverride');
             $router->get ('/stat/getServerLastRank', 'V1\\Admin\\StatController@getServerLastRank');
-            $router->get ('/stat/getFinances', 'Admin\\StatController@getFinances');
-            $router->get ('/stat/getOnlinePresence', 'Admin\\StatController@getOnlinePresence');
-            $router->get ('/stat/getNodalFlow', 'Admin\\StatController@getNodalFlow');
+            $router->get ('/stat/getFinances', 'V1\\Admin\\StatController@getFinances');
+            $router->get ('/stat/getOnlinePresence', 'V1\\Admin\\StatController@getOnlinePresence');
+            $router->get ('/stat/getNodalFlow', 'V1\\Admin\\StatController@getNodalFlow');
             $router->get ('/stat/getOrder', 'V1\\Admin\\StatController@getOrder');
             $router->get ('/stat/getStatUser', 'V1\\Admin\\StatController@getStatUser');
             $router->get ('/stat/getRanking', 'V1\\Admin\\StatController@getRanking');
             $router->get ('/stat/getStatRecord', 'V1\\Admin\\StatController@getStatRecord');
-            $router->post ('/stat/getColumnChart', 'Admin\\StatController@getColumnChart');
+            $router->post ('/stat/getColumnChart', 'V1\\Admin\\StatController@getColumnChart');
             // Notice
             $router->get ('/notice/fetch', 'V1\\Admin\\NoticeController@fetch');
             $router->post('/notice/save', 'V1\\Admin\\NoticeController@save');
