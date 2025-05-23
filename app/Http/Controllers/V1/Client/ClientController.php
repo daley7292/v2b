@@ -41,8 +41,9 @@ class ClientController extends Controller
                     return false;
                 });
             }
-            $this->setSubscribeInfoToServers($servers, $user);
             $servers = $this->filterServers($servers, $request);
+            $servers = array_values($servers);
+            $this->setSubscribeInfoToServers($servers, $user);
         } else {
             $subsDomain = $_SERVER['HTTP_HOST'];
             $servers = [
