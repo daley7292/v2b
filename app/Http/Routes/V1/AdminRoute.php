@@ -100,6 +100,8 @@ class AdminRoute
             $router->post('/user/ban', 'V1\\Admin\\UserController@ban');
             $router->post('/user/resetSecret', 'V1\\Admin\\UserController@resetSecret');
             $router->post('/user/setInviteUser', 'V1\\Admin\\UserController@setInviteUser');
+            $router->post('/user/batchDelete', 'Admin\\UserController@batchDelete');
+            $router->post('/user/getRenewalNewPurchase', 'Admin\\UserController@getRenewalNewPurchase');
             // Stat
             $router->get ('/stat/getStat', 'V1\\Admin\\StatController@getStat');
             $router->get ('/stat/getOverride', 'V1\\Admin\\StatController@getOverride');
