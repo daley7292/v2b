@@ -144,6 +144,7 @@ class AdminRoute
             $router->get ('/system/getQueueWorkload', 'V1\\Admin\\SystemController@getQueueWorkload');
             $router->get ('/system/getQueueMasters', '\\Laravel\\Horizon\\Http\\Controllers\\MasterSupervisorController@index');
             $router->get ('/system/getSystemLog', 'V1\\Admin\\SystemController@getSystemLog');
+            $router->post ('/system/delLog', 'V1\\Admin\\SystemController@delLog');
             // Theme
             $router->get ('/theme/getThemes', 'V1\\Admin\\ThemeController@getThemes');
             $router->post('/theme/saveThemeConfig', 'V1\\Admin\\ThemeController@saveThemeConfig');
