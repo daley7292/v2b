@@ -24,6 +24,9 @@ class ConfigSave extends FormRequest
         'commission_distribution_l1' => 'nullable|numeric',
         'commission_distribution_l2' => 'nullable|numeric',
         'commission_distribution_l3' => 'nullable|numeric',
+        'invite_force_present' =>'in:0,1',
+        'complimentary_packages' => 'integer',
+        'complimentary_package_duration' => 'integer',
         // site
         'logo' => 'nullable|url',
         'force_https' => 'in:0,1',
