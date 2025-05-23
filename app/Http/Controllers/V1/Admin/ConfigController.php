@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V1\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ConfigSave;
 use App\Jobs\SendEmailJob;
+use App\Models\Plan;
 use App\Services\ConfigService;
 use App\Services\TelegramService;
 use App\Utils\Dict;
