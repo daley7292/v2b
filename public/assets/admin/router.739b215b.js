@@ -1,1 +1,0 @@
-import{y as t,B as r,C as a}from"./index.931e29e8.js";const s={id:0,remarks:"",match:[],action:"block",action_value:"",created_at:0,updated_at:0},u=()=>t.get(r.queryRouter),c=e=>t.post(r.saveRouter,a(e)),n=e=>t.post(r.deleteRouter,a(e));export{n as D,u as Q,c as S,s as d};
