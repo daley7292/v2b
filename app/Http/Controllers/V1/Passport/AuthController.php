@@ -209,8 +209,8 @@ class AuthController extends Controller
                 abort(500, __('Failed to update order amount'));
             }
         }
-        //邀请人奖励
         DB::commit();
+        //邀请人奖励
         $inviteGiveType = (int)config('v2board.is_Invitation_to_give', 0);
         if ($inviteGiveType === 1 || $inviteGiveType === 3) {
             $this->handleInviteReward($user);
