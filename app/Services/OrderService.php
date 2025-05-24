@@ -188,7 +188,7 @@ class OrderService
         $order->callback_no = $callbackNo;
         if (!$order->save()) return false;
         try {
-            this->handleFirstOrderReward($order);
+            $this->handleFirstOrderReward($order);
             OrderHandleJob::dispatchNow($order->trade_no);
             app(OrderNotifyService::class)->notify($order);
         } catch (\Exception $e) {
