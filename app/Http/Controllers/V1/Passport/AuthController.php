@@ -315,12 +315,7 @@ class AuthController extends Controller
                 $order->redeem_code = null;
                 $order->gift_days = $formatted_days;
                 $orderService->setInvite($user);
-                $order->save();
-                
-                // 更新邀请人状态
-                $inviter->has_received_inviter_reward = 1;
-                $inviter->save();
-                
+                $order->save();                
                 \Log::info('注册邀请奖励发放成功', [
                     'user_id' => $user->id,
                     'inviter_id' => $inviter->id,
