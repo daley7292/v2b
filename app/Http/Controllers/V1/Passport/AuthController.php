@@ -23,7 +23,7 @@ class AuthController extends Controller
 {
     public function loginWithMailLink(Request $request)
     {
-        if (!(int)config('v2board.login_with_mail_link_enable')) {
+        if (!(int) config('v2board.login_with_mail_link_enable')) {
             abort(404);
         }
         $params = $request->validate([
@@ -78,10 +78,10 @@ class AuthController extends Controller
     {
         // 1. 验证注册限制
         $this->validateRegistrationRestrictions($request);
-        
+
         // 2. 创建用户
         $user = $this->createUser($request);
-        
+
         // 3. 处理邀请码
         if ($request->input('invite_code')) {
             $this->handleInviteCode($request, $user);
@@ -98,7 +98,7 @@ class AuthController extends Controller
 
         // 6. 清理验证码和更新登录时间
         $this->handlePostRegistration($request, $user);
-        
+
         // 7. 返回认证数据
         $authService = new AuthService($user);
         return response()->json([
@@ -108,26 +108,28 @@ class AuthController extends Controller
     private function validateRegistrationRestrictions(Request $request)
     {
         // IP限制检查
-        if ((int)config('v2board.register_limit_by_ip_enable', 0)) {
+        if ((int) config('v2board.register_limit_by_ip_enable', 0)) {
             $registerCountByIP = Cache::get(CacheKey::get('REGISTER_IP_RATE_LIMIT', $request->ip())) ?? 0;
-            if ((int)$registerCountByIP >= (int)config('v2board.register_limit_count', 3)) {
+            if ((int) $registerCountByIP >= (int) config('v2board.register_limit_count', 3)) {
                 abort(500, __('Register frequently, please try again after :minute minute', [
                     'minute' => config('v2board.register_limit_expire', 60)
                 ]));
             }
         }
         // 邮箱白名单检查
-        if ((int)config('v2board.email_whitelist_enable', 0)) {
-            if (!Helper::emailSuffixVerify(
-                $request->input('email'),
-                config('v2board.email_whitelist_suffix', Dict::EMAIL_WHITELIST_SUFFIX_DEFAULT))
+        if ((int) config('v2board.email_whitelist_enable', 0)) {
+            if (
+                !Helper::emailSuffixVerify(
+                    $request->input('email'),
+                    config('v2board.email_whitelist_suffix', Dict::EMAIL_WHITELIST_SUFFIX_DEFAULT)
+                )
             ) {
                 abort(500, __('Email suffix is not in the Whitelist'));
             }
         }
 
         // Gmail别名限制
-        if ((int)config('v2board.email_gmail_limit_enable', 0)) {
+        if ((int) config('v2board.email_gmail_limit_enable', 0)) {
             $prefix = explode('@', $request->input('email'))[0];
             if (strpos($prefix, '.') !== false || strpos($prefix, '+') !== false) {
                 abort(500, __('Gmail alias is not supported'));
@@ -135,21 +137,21 @@ class AuthController extends Controller
         }
 
         // 注册开关检查
-        if ((int)config('v2board.stop_register', 0)) {
+        if ((int) config('v2board.stop_register', 0)) {
             abort(500, __('Registration has closed'));
         }
 
         // 强制邀请码检查
-        if ((int)config('v2board.invite_force', 0) && empty($request->input('invite_code'))) {
+        if ((int) config('v2board.invite_force', 0) && empty($request->input('invite_code'))) {
             abort(500, __('You must use the invitation code to register'));
         }
 
         // 邮箱验证码检查
-        if ((int)config('v2board.email_verify', 0)) {
+        if ((int) config('v2board.email_verify', 0)) {
             if (empty($request->input('email_code'))) {
                 abort(500, __('Email verification code cannot be empty'));
             }
-            if ((string)Cache::get(CacheKey::get('EMAIL_VERIFY_CODE', $request->input('email'))) !== (string)$request->input('email_code')) {
+            if ((string) Cache::get(CacheKey::get('EMAIL_VERIFY_CODE', $request->input('email'))) !== (string) $request->input('email_code')) {
                 abort(500, __('Incorrect email verification code'));
             }
         }
@@ -177,116 +179,175 @@ class AuthController extends Controller
         return $user;
     }
 
-public function handleInviteCode(Request $request, User $user)
-{
-    $inviteCode = InviteCode::where('code', $request->input('invite_code'))
-        ->where('status', 0)
-        ->first();
+    public function handleInviteCode(Request $request, User $user)
+    {
+        $inviteCode = InviteCode::where('code', $request->input('invite_code'))
+            ->where('status', 0)
+            ->first();
 
-    if (!$inviteCode) {
-        \Log::info('邀请码无效或已使用', [
-            'invite_code' => $request->input('invite_code'),
-            'force' => config('v2board.invite_force')
-        ]);
-
-        if ((int)config('v2board.invite_force', 0)) {
-            abort(500, __('Invalid invitation code'));
-        }
-        return;
-    }
-
-    \Log::info('邀请码有效，建立邀请关系', [
-        'invite_code' => $inviteCode->code,
-        'inviter_id' => $inviteCode->user_id,
-        'user_id' => $user->id
-    ]);
-
-    $user->invite_user_id = $inviteCode->user_id;
-    if (!(int)config('v2board.invite_never_expire', 0)) {
-        $inviteCode->status = 1;
-        $inviteCode->save();
-    }
-
-    $inviteGiveType = (int)config('v2board.is_Invitation_to_give', 0);
-    \Log::info('邀请奖励配置类型', ['type' => $inviteGiveType]);
-
-    if ($inviteGiveType === 1 || $inviteGiveType === 3) {
-        $this->handleInviteReward($user);
-    } else {
-        \Log::info('不发放邀请奖励，跳过', ['type' => $inviteGiveType]);
-    }
-}
-
-public function handleInviteReward(User $user)
-{
-    try {
-        $inviter = User::find($user->invite_user_id);
-        if (!$inviter) {
-            \Log::warning('邀请人不存在', ['invite_user_id' => $user->invite_user_id]);
-            return;
-        }
-
-        if ((int)config('v2board.try_out_plan_id') == $inviter->plan_id) {
-            \Log::info('邀请人是试用套餐用户，跳过奖励', [
-                'inviter_id' => $inviter->id,
-                'plan_id' => $inviter->plan_id
+        if (!$inviteCode) {
+            \Log::info('邀请码无效或已使用', [
+                'invite_code' => $request->input('invite_code'),
+                'force' => config('v2board.invite_force')
             ]);
+
+            if ((int) config('v2board.invite_force', 0)) {
+                abort(500, __('Invalid invitation code'));
+            }
             return;
         }
 
-        $rewardPlan = Plan::find((int)config('v2board.complimentary_packages'));
-        if (!$rewardPlan) {
-            \Log::warning('奖励套餐未配置或不存在');
-            return;
-        }
-
-        $inviterCurrentPlan = Plan::find($inviter->plan_id);
-        if (!$inviterCurrentPlan) {
-            \Log::warning('邀请人当前套餐不存在', ['plan_id' => $inviter->plan_id]);
-            return;
-        }
-
-        // 检查价格有效性
-        $rewardHasValidPrice = $this->hasValidPrice($rewardPlan);
-        $inviterHasValidPrice = $this->hasValidPrice($inviterCurrentPlan);
-
-        if (!$rewardHasValidPrice || !$inviterHasValidPrice) {
-            \Log::warning('套餐价格无效，无法计算奖励', [
-                'inviter_id' => $inviter->id,
-                'reward_plan_id' => $rewardPlan->id,
-                'inviter_plan_id' => $inviter->plan_id
-            ]);
-            return;
-        }
-
-        \Log::info('开始发放奖励', [
-            'inviter_id' => $inviter->id,
+        \Log::info('邀请码有效，建立邀请关系', [
+            'invite_code' => $inviteCode->code,
+            'inviter_id' => $inviteCode->user_id,
             'user_id' => $user->id
         ]);
 
-        DB::transaction(function () use ($user, $rewardPlan, $inviterCurrentPlan, $inviter) {
-            // 省略不变部分...
-        });
-    } catch (\Exception $e) {
-        \Log::error('处理邀请奖励失败', [
-            'error' => $e->getMessage(),
-            'user_id' => $user->id,
-            'inviter_id' => $user->invite_user_id,
-            'trace' => $e->getTraceAsString()
-        ]);
-    }
-}
+        $user->invite_user_id = $inviteCode->user_id;
+        if (!(int) config('v2board.invite_never_expire', 0)) {
+            $inviteCode->status = 1;
+            $inviteCode->save();
+        }
 
-private function hasValidPrice(Plan $plan): bool
-{
-    return $plan->month_price > 0 ||
-           $plan->quarter_price > 0 ||
-           $plan->half_year_price > 0 ||
-           $plan->year_price > 0 ||
-           $plan->two_year_price > 0 ||
-           $plan->three_year_price > 0 ||
-           $plan->onetime_price > 0;
-}
+        $inviteGiveType = (int) config('v2board.is_Invitation_to_give', 0);
+        \Log::info('邀请奖励配置类型', ['type' => $inviteGiveType]);
+
+        if ($inviteGiveType === 1 || $inviteGiveType === 3) {
+            $this->handleInviteReward($user);
+        } else {
+            \Log::info('不发放邀请奖励，跳过', ['type' => $inviteGiveType]);
+        }
+    }
+
+    public function handleInviteReward(User $user)
+    {
+        try {
+            $inviter = User::find($user->invite_user_id);
+            if (!$inviter) {
+                \Log::warning('邀请人不存在', ['invite_user_id' => $user->invite_user_id]);
+                return;
+            }
+
+            if ((int) config('v2board.try_out_plan_id') == $inviter->plan_id) {
+                \Log::info('邀请人是试用套餐用户，跳过奖励', [
+                    'inviter_id' => $inviter->id,
+                    'plan_id' => $inviter->plan_id
+                ]);
+                return;
+            }
+
+            $rewardPlan = Plan::find((int) config('v2board.complimentary_packages'));
+            if (!$rewardPlan) {
+                \Log::warning('奖励套餐未配置或不存在');
+                return;
+            }
+
+            $inviterCurrentPlan = Plan::find($inviter->plan_id);
+            if (!$inviterCurrentPlan) {
+                \Log::warning('邀请人当前套餐不存在', ['plan_id' => $inviter->plan_id]);
+                return;
+            }
+
+            // 检查价格有效性
+            $rewardHasValidPrice = $this->hasValidPrice($rewardPlan);
+            $inviterHasValidPrice = $this->hasValidPrice($inviterCurrentPlan);
+
+            if (!$rewardHasValidPrice || !$inviterHasValidPrice) {
+                \Log::warning('套餐价格无效，无法计算奖励', [
+                    'inviter_id' => $inviter->id,
+                    'reward_plan_id' => $rewardPlan->id,
+                    'inviter_plan_id' => $inviter->plan_id
+                ]);
+                return;
+            }
+
+            \Log::info('开始发放奖励', [
+                'inviter_id' => $inviter->id,
+                'user_id' => $user->id
+            ]);
+
+            DB::transaction(function () use ($user, $rewardPlan, $inviterCurrentPlan, $inviter) {
+                // 初始化时间
+                $currentTime = time();
+                if ($inviter->expired_at === null || $inviter->expired_at < $currentTime) {
+                    $inviter->expired_at = $currentTime;
+                }
+
+                // 计算奖励套餐的月均价值
+                $rewardMonthlyValue = $this->getMonthlyValue($rewardPlan);
+
+                // 计算邀请人当前套餐的月均价值
+                $inviterMonthlyValue = $this->getMonthlyValue($inviterCurrentPlan);
+
+                // 计算套餐价值比例：奖励套餐月均价值 / 邀请人套餐月均价值
+                $priceRatio = $rewardMonthlyValue / $inviterMonthlyValue;
+
+                // 配置的赠送小时数
+                $configHours = (int) config('v2board.complimentary_package_duration', 1);
+
+                // 根据价值比例折算实际赠送时间
+                $adjustedHours = $configHours * $priceRatio;
+                $add_seconds = $adjustedHours * 3600; // 转换为秒
+
+                // 更新邀请人到期时间
+                $inviter->expired_at = $inviter->expired_at + $add_seconds;
+
+                // 将秒数转换为天数（用于显示）
+                $calculated_days = $add_seconds / 86400;
+                $formatted_days = number_format($calculated_days, 2, '.', '');
+
+                // 创建赠送订单
+                $order = new Order();
+                $orderService = new OrderService($order);
+                $order->user_id = $inviter->id;
+                $order->plan_id = $rewardPlan->id;
+                $order->period = 'try_out';  // 赠送标记位
+                $order->trade_no = Helper::guid();
+                $order->total_amount = 0;
+                $order->status = 3;
+                $order->type = 6;
+                $order->invited_user_id = $user->id;
+                $order->redeem_code = null;
+                $order->gift_days = $formatted_days;
+                $orderService->setInvite($user);
+                $order->save();
+
+                // 更新邀请人状态
+                $inviter->has_received_inviter_reward = 1;
+                $inviter->save();
+
+                \Log::info('注册邀请奖励发放成功', [
+                    'user_id' => $user->id,
+                    'inviter_id' => $inviter->id,
+                    'order_id' => $order->id,
+                    'reward_monthly_value' => $rewardMonthlyValue,
+                    'inviter_monthly_value' => $inviterMonthlyValue,
+                    'price_ratio' => $priceRatio,
+                    'config_hours' => $configHours,
+                    'adjusted_hours' => $adjustedHours,
+                    'gift_days' => $formatted_days
+                ]);
+            });
+        } catch (\Exception $e) {
+            \Log::error('处理邀请奖励失败', [
+                'error' => $e->getMessage(),
+                'user_id' => $user->id,
+                'inviter_id' => $user->invite_user_id,
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    private function hasValidPrice(Plan $plan): bool
+    {
+        return $plan->month_price > 0 ||
+            $plan->quarter_price > 0 ||
+            $plan->half_year_price > 0 ||
+            $plan->year_price > 0 ||
+            $plan->two_year_price > 0 ||
+            $plan->three_year_price > 0 ||
+            $plan->onetime_price > 0;
+    }
 
     /**
      * 计算套餐的月均价值
@@ -295,54 +356,54 @@ private function hasValidPrice(Plan $plan): bool
     private function getMonthlyValue($plan)
     {
         $monthlyValues = [];
-        
+
         // 月付价格
         if ($plan->month_price > 0) {
             $monthlyValues[] = $plan->month_price;
         }
-        
+
         // 季付价格折算为月价格
         if ($plan->quarter_price > 0) {
             $monthlyValues[] = $plan->quarter_price / 3;
         }
-        
+
         // 半年付价格折算为月价格
         if ($plan->half_year_price > 0) {
             $monthlyValues[] = $plan->half_year_price / 6;
         }
-        
+
         // 年付价格折算为月价格
         if ($plan->year_price > 0) {
             $monthlyValues[] = $plan->year_price / 12;
         }
-        
+
         // 两年付价格折算为月价格
         if ($plan->two_year_price > 0) {
             $monthlyValues[] = $plan->two_year_price / 24;
         }
-        
+
         // 三年付价格折算为月价格
         if ($plan->three_year_price > 0) {
             $monthlyValues[] = $plan->three_year_price / 36;
         }
-        
+
         // 一次性付费，假设等同于年付折算
         if ($plan->onetime_price > 0) {
             $monthlyValues[] = $plan->onetime_price / 12;
         }
-        
+
         // 如果没有有效价格，返回1以避免除零错误
         if (empty($monthlyValues)) {
             return 1;
         }
-        
+
         // 返回最优惠的月均价值（最小值）
         return min($monthlyValues);
     }
 
     private function handleTrialPlan(User $user)
     {
-        if ((int)config('v2board.try_out_plan_id', 0)) {
+        if ((int) config('v2board.try_out_plan_id', 0)) {
             $plan = Plan::find(config('v2board.try_out_plan_id'));
             if ($plan) {
                 //判断试用计划是否存在并且进行更新
@@ -374,12 +435,12 @@ private function hasValidPrice(Plan $plan): bool
         $user->save();
 
         // 更新IP限制缓存
-        if ((int)config('v2board.register_limit_by_ip_enable', 0)) {
+        if ((int) config('v2board.register_limit_by_ip_enable', 0)) {
             $registerCountByIP = Cache::get(CacheKey::get('REGISTER_IP_RATE_LIMIT', $request->ip())) ?? 0;
             Cache::put(
                 CacheKey::get('REGISTER_IP_RATE_LIMIT', $request->ip()),
-                (int)$registerCountByIP + 1,
-                (int)config('v2board.register_limit_expire', 60) * 60
+                (int) $registerCountByIP + 1,
+                (int) config('v2board.register_limit_expire', 60) * 60
             );
         }
     }
@@ -388,9 +449,9 @@ private function hasValidPrice(Plan $plan): bool
         $email = $request->input('email');
         $password = $request->input('password');
 
-        if ((int)config('v2board.password_limit_enable', 1)) {
-            $passwordErrorCount = (int)Cache::get(CacheKey::get('PASSWORD_ERROR_LIMIT', $email), 0);
-            if ($passwordErrorCount >= (int)config('v2board.password_limit_count', 5)) {
+        if ((int) config('v2board.password_limit_enable', 1)) {
+            $passwordErrorCount = (int) Cache::get(CacheKey::get('PASSWORD_ERROR_LIMIT', $email), 0);
+            if ($passwordErrorCount >= (int) config('v2board.password_limit_count', 5)) {
                 abort(500, __('There are too many password errors, please try again after :minute minutes.', [
                     'minute' => config('v2board.password_limit_expire', 60)
                 ]));
@@ -401,17 +462,19 @@ private function hasValidPrice(Plan $plan): bool
         if (!$user) {
             abort(500, __('Incorrect email or password'));
         }
-        if (!Helper::multiPasswordVerify(
-            $user->password_algo,
-            $user->password_salt,
-            $password,
-            $user->password)
+        if (
+            !Helper::multiPasswordVerify(
+                $user->password_algo,
+                $user->password_salt,
+                $password,
+                $user->password
+            )
         ) {
-            if ((int)config('v2board.password_limit_enable')) {
+            if ((int) config('v2board.password_limit_enable')) {
                 Cache::put(
                     CacheKey::get('PASSWORD_ERROR_LIMIT', $email),
-                    (int)$passwordErrorCount + 1,
-                    60 * (int)config('v2board.password_limit_expire', 60)
+                    (int) $passwordErrorCount + 1,
+                    60 * (int) config('v2board.password_limit_expire', 60)
                 );
             }
             abort(500, __('Incorrect email or password'));
@@ -440,7 +503,7 @@ private function hasValidPrice(Plan $plan): bool
         }
 
         if ($request->input('verify')) {
-            $key =  CacheKey::get('TEMP_TOKEN', $request->input('verify'));
+            $key = CacheKey::get('TEMP_TOKEN', $request->input('verify'));
             $userId = Cache::get($key);
             if (!$userId) {
                 abort(500, __('Token error'));
@@ -463,10 +526,12 @@ private function hasValidPrice(Plan $plan): bool
     public function getQuickLoginUrl(Request $request)
     {
         $authorization = $request->input('auth_data') ?? $request->header('authorization');
-        if (!$authorization) abort(403, '未登录或登陆已过期');
+        if (!$authorization)
+            abort(403, '未登录或登陆已过期');
 
         $user = AuthService::decryptAuthData($authorization);
-        if (!$user) abort(403, '未登录或登陆已过期');
+        if (!$user)
+            abort(403, '未登录或登陆已过期');
 
         $code = Helper::guid();
         $key = CacheKey::get('TEMP_TOKEN', $code);
@@ -485,9 +550,10 @@ private function hasValidPrice(Plan $plan): bool
     public function forget(AuthForget $request)
     {
         $forgetRequestLimitKey = CacheKey::get('FORGET_REQUEST_LIMIT', $request->input('email'));
-        $forgetRequestLimit = (int)Cache::get($forgetRequestLimitKey);
-        if ($forgetRequestLimit >= 3) abort(500, __('Reset failed, Please try again later'));
-        if ((string)Cache::get(CacheKey::get('EMAIL_VERIFY_CODE', $request->input('email'))) !== (string)$request->input('email_code')) {
+        $forgetRequestLimit = (int) Cache::get($forgetRequestLimitKey);
+        if ($forgetRequestLimit >= 3)
+            abort(500, __('Reset failed, Please try again later'));
+        if ((string) Cache::get(CacheKey::get('EMAIL_VERIFY_CODE', $request->input('email'))) !== (string) $request->input('email_code')) {
             Cache::put($forgetRequestLimitKey, $forgetRequestLimit ? $forgetRequestLimit + 1 : 1, 300);
             abort(500, __('Incorrect email verification code'));
         }
@@ -506,5 +572,4 @@ private function hasValidPrice(Plan $plan): bool
             'data' => true
         ]);
     }
-
 }
