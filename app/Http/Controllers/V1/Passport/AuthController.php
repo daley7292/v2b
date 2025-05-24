@@ -16,6 +16,7 @@ use App\Utils\Dict;
 use App\Utils\Helper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use ReCaptcha\ReCaptcha;
 
 class AuthController extends Controller
