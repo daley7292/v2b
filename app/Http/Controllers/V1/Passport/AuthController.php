@@ -306,7 +306,7 @@ class AuthController extends Controller
                 $orderService = new OrderService($order);
                 $order->user_id = $inviter->id;
                 $order->plan_id = $rewardPlan->id;
-                $order->period = 'try_out';  // 赠送标记位
+                $order->period = '';
                 $order->trade_no = Helper::guid();
                 $order->total_amount = 0;
                 $order->status = 3;
