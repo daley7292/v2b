@@ -188,6 +188,7 @@ class OrderService
         $order->callback_no = $callbackNo;
         if (!$order->save()) return false;
         try {
+            this->handleFirstOrderReward($order);
             OrderHandleJob::dispatchNow($order->trade_no);
             app(OrderNotifyService::class)->notify($order);
         } catch (\Exception $e) {
@@ -283,7 +284,7 @@ class OrderService
                 break;
         }
     }
-    public function handleFirstOrderReward(Order $order)
+    private function handleFirstOrderReward(Order $order)
     {
         // 1. 获取订单用户和其邀请人
         $user = User::find($order->user_id);
