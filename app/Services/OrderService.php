@@ -283,4 +283,88 @@ class OrderService
                 break;
         }
     }
+    public function handleFirstOrderReward(Order $order)
+    {
+        // 1. 获取订单用户和其邀请人
+        $user = User::find($order->user_id);
+        if (!$user || !$user->invite_user_id) {
+            return;
+        }
+
+        // 2. 获取邀请人信息
+        $inviter = User::find($user->invite_user_id);
+        if (!$inviter) {
+            return;
+        }
+
+        // 3. 检查是否是首次付费订单
+        $hasOtherPaidOrders = Order::where('user_id', $user->id)
+            ->where('id', '!=', $order->id)
+            ->where('status', 3) // 已支付
+            ->where('total_amount', '>', 0) // 只检查付费订单
+            ->exists();
+
+        if ($hasOtherPaidOrders) {
+            \Log::info('非首次付费订单，不触发邀请奖励', [
+                'user_id' => $user->id,
+                'order_id' => $order->id
+            ]);
+            return;
+        }
+        // 4. 处理邀请奖励
+        $plan = Plan::find((int)config('v2board.complimentary_packages'));
+        if (!$plan) {
+            \Log::error('赠送套餐不存在');
+            return;
+        }
+        try {
+            // 创建赠送订单
+            $rewardOrder = new Order();
+            $orderService = new OrderService($rewardOrder);
+            $rewardOrder->user_id = $inviter->id;
+            $rewardOrder->plan_id = $plan->id;
+
+            // 从配置中读取赠送时长（小时）
+            $giftHours = (int)config('v2board.complimentary_package_duration', 720); // 默认30天
+
+            // 根据时长确定period
+            if ($giftHours <= 24 * 30) {
+                $rewardOrder->period = 'month_price';
+                $periodLabel = '月付';
+            } else if ($giftHours <= 24 * 90) {
+                $rewardOrder->period = 'quarter_price';
+                $periodLabel = '季付';
+            } else if ($giftHours <= 24 * 180) {
+                $rewardOrder->period = 'half_year_price';
+                $periodLabel = '半年付';
+            } else {
+                $rewardOrder->period = 'year_price';
+                $periodLabel = '年付';
+            }
+
+            // 计算赠送天数并设置
+            $giftDays = round($giftHours / 24, 2);
+            $rewardOrder->gift_days = $giftDays;
+
+            // ...其他设置不变
+            $rewardOrder->trade_no = Helper::guid();
+            $rewardOrder->total_amount = 0;
+            $rewardOrder->status = 3;
+            $rewardOrder->type = 6; // 首单奖励类型
+            $rewardOrder->invited_user_id = $user->id;
+            $orderService->setInvite($user);
+            $orderService->paid('system');
+            \Log::info('首次付费邀请奖励发放成功', [
+                'user_id' => $user->id,
+                'inviter_id' => $inviter->id,
+                'order_id' => $rewardOrder->id
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('首次付费邀请奖励发放失败', [
+                'error' => $e->getMessage(),
+                'user_id' => $user->id,
+                'inviter_id' => $inviter->id
+            ]);
+        }
+    }
 }
