@@ -115,7 +115,6 @@ class AuthController extends Controller
                 ]));
             }
         }
-a
         // 邮箱白名单检查
         if ((int)config('v2board.email_whitelist_enable', 0)) {
             if (!Helper::emailSuffixVerify(
