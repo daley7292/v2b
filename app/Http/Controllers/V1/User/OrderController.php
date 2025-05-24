@@ -208,6 +208,7 @@ class OrderController extends Controller
             'user_id' => $order->user_id,
             'stripe_token' => $request->input('token')
         ]);
+        app(OrderNotifyService::class)->notify($order);
         return response([
             'type' => $result['type'],
             'data' => $result['data']
