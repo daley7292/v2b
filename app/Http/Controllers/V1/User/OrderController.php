@@ -498,4 +498,69 @@ class OrderController extends Controller
             ]);
         }
     }
+    public function processCommissionForOrder(Order $order)
+    {
+        // 检查订单状态和金额
+        if ($order->status !== 3 || $order->total_amount <= 0) {
+            return;
+        }
+        
+        // 检查佣金系统是否启用
+        if ((int)config('v2board.commission_status', 0) !== 1) {
+            return;
+        }
+        
+        // 获取用户信息
+        $user = User::find($order->user_id);
+        if (!$user || !$user->invite_user_id) {
+            return;
+        }
+        
+        // 查找邀请人
+        $inviter = User::find($user->invite_user_id);
+        if (!$inviter) {
+            return;
+        }
+        
+        // 检查是否已发放过该订单佣金
+        $hasCommissionLog = \App\Models\CommissionLog::where('trade_no', $order->trade_no)
+            ->where('type', 1)
+            ->exists();
+        if ($hasCommissionLog) {
+            return;
+        }
+        
+        // 计算佣金金额
+        $commissionRate = (float)config('v2board.invite_commission', 10) / 100;
+        $commissionAmount = $order->total_amount * $commissionRate;
+        
+        // 佣金金额过小则忽略
+        if ($commissionAmount < 0.01) {
+            return;
+        }
+        
+        // 创建佣金记录
+        $commissionLog = new \App\Models\CommissionLog();
+        $commissionLog->invite_user_id = $inviter->id; // 邀请人ID
+        $commissionLog->user_id = $user->id; // 被邀请人ID
+        $commissionLog->trade_no = $order->trade_no;
+        $commissionLog->order_amount = $order->total_amount;
+        $commissionLog->commission_amount = $commissionAmount;
+        $commissionLog->type = 1; // 1表示订单佣金
+        $commissionLog->created_at = time();
+        $commissionLog->updated_at = time();
+        
+        // 更新邀请人佣金余额
+        if ($commissionLog->save()) {
+            $inviter->commission_balance = $inviter->commission_balance + $commissionAmount;
+            $inviter->save();
+            
+            \Log::info('订单佣金发放成功', [
+                'order_id' => $order->id,
+                'user_id' => $user->id,
+                'inviter_id' => $inviter->id,
+                'amount' => $commissionAmount
+            ]);
+        }
+    }
 }
