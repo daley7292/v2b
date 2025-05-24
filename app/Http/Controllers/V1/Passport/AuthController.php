@@ -79,6 +79,7 @@ class AuthController extends Controller
 
     public function register(AuthRegister $request)
     {
+        DB::beginTransaction();
         $request->validate([
             'email' => 'required|email',
             'password' => ['required', 'string', 'min:4'],  // 密码必须至少8位
@@ -104,15 +105,6 @@ class AuthController extends Controller
                 abort(500, '该邮箱后缀不在白名单内');
             }
         }
-
-        // 检查 Gmail 别名限制
-        if ((int) config('v2board.email_gmail_limit_enable', 0)) {
-            $prefix = explode('@', $email)[0];
-            if (strpos($prefix, '.') !== false || strpos($prefix, '+') !== false) {
-                abort(500, '不支持 Gmail 别名');
-            }
-        }
-
         // 检查邮箱是否已存在
         if (User::where('email', $email)->exists()) {
             abort(500, '该邮箱已被注册');
@@ -148,7 +140,6 @@ class AuthController extends Controller
         }
         
         //注册
-        DB::beginTransaction();
         $user = new User();
         $user->email = $email;
         $user->password = password_hash($password, PASSWORD_DEFAULT);
@@ -174,7 +165,7 @@ class AuthController extends Controller
             abort(500, __('Register failed'));
         }
 
-        //订单
+        //兑换订单
         if ($code) {
             $redemptionCodeService = new RedemptionCodeService();
             $redeemData = $redemptionCodeService->validate($code);
@@ -221,13 +212,136 @@ class AuthController extends Controller
             OrderHandleJob::dispatchNow($order->trade_no);
             app(OrderNotifyService::class)->notify($order);
         }
+        //邀请人奖励
         DB::commit();
+        $inviteGiveType = (int)config('v2board.is_Invitation_to_give', 0);
+        if ($inviteGiveType === 1 || $inviteGiveType === 3) {
+            $this->handleInviteReward($user);
+        }
         $authService = new AuthService($user);
         return response()->json([
             'data' => $authService->generateAuthData($request)
         ]);
     }
-   
+    // 处理邀请奖励 - 根据套餐价值比例折算
+    public function handleInviteReward(User $user)
+    {
+        try {
+            // 获取邀请人
+            $inviter = User::find($user->invite_user_id);
+            if (!$inviter || (int)config('v2board.try_out_plan_id') == $inviter->plan_id) {
+                return;
+            }
+            
+            // 获取奖励套餐(配置中设置的赠送套餐)
+            $rewardPlan = Plan::find((int)config('v2board.complimentary_packages'));
+            if (!$rewardPlan) {
+                return;
+            }
+            
+            // 获取邀请人当前套餐
+            $inviterCurrentPlan = Plan::find($inviter->plan_id);
+            if (!$inviterCurrentPlan) {
+                return;
+            }
+
+            // 检查套餐价格有效性
+            $rewardHasValidPrice = $rewardPlan->month_price > 0 || 
+                $rewardPlan->quarter_price > 0 || 
+                $rewardPlan->half_year_price > 0 || 
+                $rewardPlan->year_price > 0 || 
+                $rewardPlan->two_year_price > 0 || 
+                $rewardPlan->three_year_price > 0 || 
+                $rewardPlan->onetime_price > 0;
+
+            $inviterHasValidPrice = $inviterCurrentPlan->month_price > 0 || 
+                $inviterCurrentPlan->quarter_price > 0 || 
+                $inviterCurrentPlan->half_year_price > 0 || 
+                $inviterCurrentPlan->year_price > 0 || 
+                $inviterCurrentPlan->two_year_price > 0 || 
+                $inviterCurrentPlan->three_year_price > 0 || 
+                $inviterCurrentPlan->onetime_price > 0;
+
+            if (!$inviterHasValidPrice || !$rewardHasValidPrice) {
+                \Log::warning('套餐价格异常，无法计算奖励', [
+                    'inviter_id' => $inviter->id,
+                    'reward_plan_id' => $rewardPlan->id,
+                    'current_plan_id' => $inviter->plan_id
+                ]);
+                return; // 避免除零错误
+            }
+            
+            DB::transaction(function () use ($user, $rewardPlan, $inviterCurrentPlan, $inviter) {
+                // 初始化时间
+                $currentTime = time();
+                if ($inviter->expired_at === null || $inviter->expired_at < $currentTime) {
+                    $inviter->expired_at = $currentTime;
+                }
+                
+                // 计算奖励套餐的月均价值
+                $rewardMonthlyValue = $this->getMonthlyValue($rewardPlan);
+                
+                // 计算邀请人当前套餐的月均价值
+                $inviterMonthlyValue = $this->getMonthlyValue($inviterCurrentPlan);
+                
+                // 计算套餐价值比例：奖励套餐月均价值 / 邀请人套餐月均价值
+                $priceRatio = $rewardMonthlyValue / $inviterMonthlyValue;
+                
+                // 配置的赠送小时数
+                $configHours = (int)config('v2board.complimentary_package_duration', 1);
+                
+                // 根据价值比例折算实际赠送时间
+                $adjustedHours = $configHours * $priceRatio;
+                $add_seconds = $adjustedHours * 3600; // 转换为秒
+                
+                // 更新邀请人到期时间
+                $inviter->expired_at = $inviter->expired_at + $add_seconds;
+                
+                // 将秒数转换为天数（用于显示）
+                $calculated_days = $add_seconds / 86400;
+                $formatted_days = number_format($calculated_days, 2, '.', '');
+                
+                // 创建赠送订单
+                $order = new Order();
+                $orderService = new OrderService($order);
+                $order->user_id = $inviter->id;
+                $order->plan_id = $rewardPlan->id;
+                $order->period = 'try_out';  // 赠送标记位
+                $order->trade_no = Helper::guid();
+                $order->total_amount = 0;
+                $order->status = 3;
+                $order->type = 6;
+                $order->invited_user_id = $user->id;
+                $order->redeem_code = null;
+                $order->gift_days = $formatted_days;
+                $orderService->setInvite($user);
+                $order->save();
+                
+                // 更新邀请人状态
+                $inviter->has_received_inviter_reward = 1;
+                $inviter->save();
+                
+                \Log::info('注册邀请奖励发放成功', [
+                    'user_id' => $user->id,
+                    'inviter_id' => $inviter->id,
+                    'order_id' => $order->id,
+                    'reward_monthly_value' => $rewardMonthlyValue,
+                    'inviter_monthly_value' => $inviterMonthlyValue,
+                    'price_ratio' => $priceRatio,
+                    'config_hours' => $configHours,
+                    'adjusted_hours' => $adjustedHours,
+                    'gift_days' => $formatted_days
+                ]);
+            });
+        } catch (\Exception $e) {
+            \Log::error('处理邀请奖励失败', [
+                'error' => $e->getMessage(),
+                'user_id' => $user->id,
+                'inviter_id' => $user->invite_user_id,
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
     public function login(AuthLogin $request)
     {
         $email = $request->input('email');
