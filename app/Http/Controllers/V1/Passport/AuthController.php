@@ -13,7 +13,6 @@ use App\Models\User;
 use App\Models\Order;
 use App\Services\AuthService;
 use App\Services\OrderService;
-use App\Services\OrderNotifyService;
 use App\Utils\CacheKey;
 use App\Utils\Dict;
 use App\Utils\Helper;
@@ -192,7 +191,7 @@ class AuthController extends Controller
             $order->period = $redeemData['period'];
             $order->trade_no = Helper::guid();
             $order->total_amount = 0;
-            $order->status = 1;
+            $order->status = 0;
             if ($inviteCode) {
                 $order->invite_user_id = $inviteCode->user_id ? $inviteCode->user_id : null;
             }
@@ -210,7 +209,6 @@ class AuthController extends Controller
                 abort(500, __('Failed to update order amount'));
             }
             OrderHandleJob::dispatchNow($order->trade_no);
-            app(OrderNotifyService::class)->notify($order);
         }
         //邀请人奖励
         DB::commit();
