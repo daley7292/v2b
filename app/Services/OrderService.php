@@ -355,6 +355,7 @@ class OrderService
             $rewardOrder->type = 6; // 首单奖励类型
             $rewardOrder->invited_user_id = $user->id;
             $orderService->setInvite($user);
+            if (!$order->save()) return false;
             $orderService->paid('system');
             \Log::info('首次付费邀请奖励发放成功', [
                 'user_id' => $user->id,
