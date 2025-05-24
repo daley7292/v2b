@@ -337,6 +337,53 @@ class AuthController extends Controller
             ]);
         }
     }
+    private function getMonthlyValue($plan)
+    {
+        $monthlyValues = [];
+        
+        // 月付价格
+        if ($plan->month_price > 0) {
+            $monthlyValues[] = $plan->month_price;
+        }
+        
+        // 季付价格折算为月价格
+        if ($plan->quarter_price > 0) {
+            $monthlyValues[] = $plan->quarter_price / 3;
+        }
+        
+        // 半年付价格折算为月价格
+        if ($plan->half_year_price > 0) {
+            $monthlyValues[] = $plan->half_year_price / 6;
+        }
+        
+        // 年付价格折算为月价格
+        if ($plan->year_price > 0) {
+            $monthlyValues[] = $plan->year_price / 12;
+        }
+        
+        // 两年付价格折算为月价格
+        if ($plan->two_year_price > 0) {
+            $monthlyValues[] = $plan->two_year_price / 24;
+        }
+        
+        // 三年付价格折算为月价格
+        if ($plan->three_year_price > 0) {
+            $monthlyValues[] = $plan->three_year_price / 36;
+        }
+        
+        // 一次性付费，假设等同于年付折算
+        if ($plan->onetime_price > 0) {
+            $monthlyValues[] = $plan->onetime_price / 12;
+        }
+        
+        // 如果没有有效价格，返回1以避免除零错误
+        if (empty($monthlyValues)) {
+            return 1;
+        }
+        
+        // 返回最优惠的月均价值（最小值）
+        return min($monthlyValues);
+    }
     public function login(AuthLogin $request)
     {
         $email = $request->input('email');
