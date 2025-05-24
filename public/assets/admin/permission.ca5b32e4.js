@@ -1,0 +1,1 @@
+import{y as e,B as r,C as o}from"./index.931e29e8.js";const i={id:0,name:"",created_at:0,updated_at:0,user_count:0,server_count:0},a=()=>e.get(r.queryPermissionGroup),n=s=>e.post(r.savePermissionGroup,o(s)),u=s=>e.post(r.deletePermissionGroup,o(s));export{u as D,a as Q,n as S,i as d};

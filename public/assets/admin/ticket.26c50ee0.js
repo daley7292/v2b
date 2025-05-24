@@ -1,0 +1,1 @@
+import{y as t,B as s,J as r,C as a}from"./index.931e29e8.js";const c={id:0,user_id:0,subject:"",level:0,message:[],status:1,reply_status:0,created_at:0,updated_at:0},o={...c},u=e=>t.get(s.queryTicket+r(e)),n=e=>t.get(s.queryTicket+r(e)),l=e=>t.post(s.replyTicket,a(e)),k=e=>t.post(s.closeTicket,a(e));export{k as C,n as Q,l as R,u as a,o as n};
