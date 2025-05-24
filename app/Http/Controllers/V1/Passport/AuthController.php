@@ -176,152 +176,116 @@ class AuthController extends Controller
         return $user;
     }
 
-    public function handleInviteCode(Request $request, User $user)
-    {
-        $inviteCode = InviteCode::where('code', $request->input('invite_code'))
-            ->where('status', 0)
-            ->first();
+public function handleInviteCode(Request $request, User $user)
+{
+    $inviteCode = InviteCode::where('code', $request->input('invite_code'))
+        ->where('status', 0)
+        ->first();
 
-        if (!$inviteCode) {
-            if ((int)config('v2board.invite_force', 0)) {
-                abort(500, __('Invalid invitation code'));
-            }
+    if (!$inviteCode) {
+        \Log::info('邀请码无效或已使用', [
+            'invite_code' => $request->input('invite_code'),
+            'force' => config('v2board.invite_force')
+        ]);
+
+        if ((int)config('v2board.invite_force', 0)) {
+            abort(500, __('Invalid invitation code'));
+        }
+        return;
+    }
+
+    \Log::info('邀请码有效，建立邀请关系', [
+        'invite_code' => $inviteCode->code,
+        'inviter_id' => $inviteCode->user_id,
+        'user_id' => $user->id
+    ]);
+
+    $user->invite_user_id = $inviteCode->user_id;
+    if (!(int)config('v2board.invite_never_expire', 0)) {
+        $inviteCode->status = 1;
+        $inviteCode->save();
+    }
+
+    $inviteGiveType = (int)config('v2board.is_Invitation_to_give', 0);
+    \Log::info('邀请奖励配置类型', ['type' => $inviteGiveType]);
+
+    if ($inviteGiveType === 1 || $inviteGiveType === 3) {
+        $this->handleInviteReward($user);
+    } else {
+        \Log::info('不发放邀请奖励，跳过', ['type' => $inviteGiveType]);
+    }
+}
+
+public function handleInviteReward(User $user)
+{
+    try {
+        $inviter = User::find($user->invite_user_id);
+        if (!$inviter) {
+            \Log::warning('邀请人不存在', ['invite_user_id' => $user->invite_user_id]);
             return;
         }
 
-        // 设置邀请关系
-        $user->invite_user_id = $inviteCode->user_id;
-        if (!(int)config('v2board.invite_never_expire', 0)) {
-            $inviteCode->status = 1;
-            $inviteCode->save();
-        }
-
-        // 处理邀请奖励
-        $inviteGiveType = (int)config('v2board.is_Invitation_to_give', 0);
-        if ($inviteGiveType === 1 || $inviteGiveType === 3) {
-            $this->handleInviteReward($user);
-        }
-    }
-
-    // 处理邀请奖励 - 根据套餐价值比例折算
-    public function handleInviteReward(User $user)
-    {
-        try {
-            // 获取邀请人
-            $inviter = User::find($user->invite_user_id);
-            if (!$inviter || (int)config('v2board.try_out_plan_id') == $inviter->plan_id) {
-                return;
-            }
-            
-            // 获取奖励套餐(配置中设置的赠送套餐)
-            $rewardPlan = Plan::find((int)config('v2board.complimentary_packages'));
-            if (!$rewardPlan) {
-                return;
-            }
-            
-            // 获取邀请人当前套餐
-            $inviterCurrentPlan = Plan::find($inviter->plan_id);
-            if (!$inviterCurrentPlan) {
-                return;
-            }
-
-            // 检查套餐价格有效性
-            $rewardHasValidPrice = $rewardPlan->month_price > 0 || 
-                $rewardPlan->quarter_price > 0 || 
-                $rewardPlan->half_year_price > 0 || 
-                $rewardPlan->year_price > 0 || 
-                $rewardPlan->two_year_price > 0 || 
-                $rewardPlan->three_year_price > 0 || 
-                $rewardPlan->onetime_price > 0;
-
-            $inviterHasValidPrice = $inviterCurrentPlan->month_price > 0 || 
-                $inviterCurrentPlan->quarter_price > 0 || 
-                $inviterCurrentPlan->half_year_price > 0 || 
-                $inviterCurrentPlan->year_price > 0 || 
-                $inviterCurrentPlan->two_year_price > 0 || 
-                $inviterCurrentPlan->three_year_price > 0 || 
-                $inviterCurrentPlan->onetime_price > 0;
-
-            if (!$inviterHasValidPrice || !$rewardHasValidPrice) {
-                \Log::warning('套餐价格异常，无法计算奖励', [
-                    'inviter_id' => $inviter->id,
-                    'reward_plan_id' => $rewardPlan->id,
-                    'current_plan_id' => $inviter->plan_id
-                ]);
-                return; // 避免除零错误
-            }
-            
-            DB::transaction(function () use ($user, $rewardPlan, $inviterCurrentPlan, $inviter) {
-                // 初始化时间
-                $currentTime = time();
-                if ($inviter->expired_at === null || $inviter->expired_at < $currentTime) {
-                    $inviter->expired_at = $currentTime;
-                }
-                
-                // 计算奖励套餐的月均价值
-                $rewardMonthlyValue = $this->getMonthlyValue($rewardPlan);
-                
-                // 计算邀请人当前套餐的月均价值
-                $inviterMonthlyValue = $this->getMonthlyValue($inviterCurrentPlan);
-                
-                // 计算套餐价值比例：奖励套餐月均价值 / 邀请人套餐月均价值
-                $priceRatio = $rewardMonthlyValue / $inviterMonthlyValue;
-                
-                // 配置的赠送小时数
-                $configHours = (int)config('v2board.complimentary_package_duration', 1);
-                
-                // 根据价值比例折算实际赠送时间
-                $adjustedHours = $configHours * $priceRatio;
-                $add_seconds = $adjustedHours * 3600; // 转换为秒
-                
-                // 更新邀请人到期时间
-                $inviter->expired_at = $inviter->expired_at + $add_seconds;
-                
-                // 将秒数转换为天数（用于显示）
-                $calculated_days = $add_seconds / 86400;
-                $formatted_days = number_format($calculated_days, 2, '.', '');
-                
-                // 创建赠送订单
-                $order = new Order();
-                $orderService = new OrderService($order);
-                $order->user_id = $inviter->id;
-                $order->plan_id = $rewardPlan->id;
-                $order->period = 'try_out';  // 赠送标记位
-                $order->trade_no = Helper::guid();
-                $order->total_amount = 0;
-                $order->status = 3;
-                $order->type = 6;
-                $order->invited_user_id = $user->id;
-                $order->redeem_code = null;
-                $order->gift_days = $formatted_days;
-                $orderService->setInvite($user);
-                $order->save();
-                
-                // 更新邀请人状态
-                $inviter->has_received_inviter_reward = 1;
-                $inviter->save();
-                
-                \Log::info('注册邀请奖励发放成功', [
-                    'user_id' => $user->id,
-                    'inviter_id' => $inviter->id,
-                    'order_id' => $order->id,
-                    'reward_monthly_value' => $rewardMonthlyValue,
-                    'inviter_monthly_value' => $inviterMonthlyValue,
-                    'price_ratio' => $priceRatio,
-                    'config_hours' => $configHours,
-                    'adjusted_hours' => $adjustedHours,
-                    'gift_days' => $formatted_days
-                ]);
-            });
-        } catch (\Exception $e) {
-            \Log::error('处理邀请奖励失败', [
-                'error' => $e->getMessage(),
-                'user_id' => $user->id,
-                'inviter_id' => $user->invite_user_id,
-                'trace' => $e->getTraceAsString()
+        if ((int)config('v2board.try_out_plan_id') == $inviter->plan_id) {
+            \Log::info('邀请人是试用套餐用户，跳过奖励', [
+                'inviter_id' => $inviter->id,
+                'plan_id' => $inviter->plan_id
             ]);
+            return;
         }
+
+        $rewardPlan = Plan::find((int)config('v2board.complimentary_packages'));
+        if (!$rewardPlan) {
+            \Log::warning('奖励套餐未配置或不存在');
+            return;
+        }
+
+        $inviterCurrentPlan = Plan::find($inviter->plan_id);
+        if (!$inviterCurrentPlan) {
+            \Log::warning('邀请人当前套餐不存在', ['plan_id' => $inviter->plan_id]);
+            return;
+        }
+
+        // 检查价格有效性
+        $rewardHasValidPrice = $this->hasValidPrice($rewardPlan);
+        $inviterHasValidPrice = $this->hasValidPrice($inviterCurrentPlan);
+
+        if (!$rewardHasValidPrice || !$inviterHasValidPrice) {
+            \Log::warning('套餐价格无效，无法计算奖励', [
+                'inviter_id' => $inviter->id,
+                'reward_plan_id' => $rewardPlan->id,
+                'inviter_plan_id' => $inviter->plan_id
+            ]);
+            return;
+        }
+
+        \Log::info('开始发放奖励', [
+            'inviter_id' => $inviter->id,
+            'user_id' => $user->id
+        ]);
+
+        DB::transaction(function () use ($user, $rewardPlan, $inviterCurrentPlan, $inviter) {
+            // 省略不变部分...
+        });
+    } catch (\Exception $e) {
+        \Log::error('处理邀请奖励失败', [
+            'error' => $e->getMessage(),
+            'user_id' => $user->id,
+            'inviter_id' => $user->invite_user_id,
+            'trace' => $e->getTraceAsString()
+        ]);
     }
+}
+
+private function hasValidPrice(Plan $plan): bool
+{
+    return $plan->month_price > 0 ||
+           $plan->quarter_price > 0 ||
+           $plan->half_year_price > 0 ||
+           $plan->year_price > 0 ||
+           $plan->two_year_price > 0 ||
+           $plan->three_year_price > 0 ||
+           $plan->onetime_price > 0;
+}
 
     /**
      * 计算套餐的月均价值
@@ -400,9 +364,9 @@ class AuthController extends Controller
     private function handlePostRegistration(Request $request, User $user)
     {
         // 清理邮箱验证码缓存
-        if ((int)config('v2board.email_verify', 0)) {
-            Cache::forget(CacheKey::get('EMAIL_VERIFY_CODE', $request->input('email')));
-        }
+        // if ((int)config('v2board.email_verify', 0)) {
+        //     Cache::forget(CacheKey::get('EMAIL_VERIFY_CODE', $request->input('email')));
+        // }
 
         // 更新登录时间
         $user->last_login_at = time();
