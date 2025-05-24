@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Plan;
 use App\Models\User;
 use App\Utils\CacheKey;
+use App\Services\OrderNotifyService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -188,6 +189,7 @@ class OrderService
         if (!$order->save()) return false;
         try {
             OrderHandleJob::dispatchNow($order->trade_no);
+            app(OrderNotifyService::class)->notify($order);
         } catch (\Exception $e) {
             return false;
         }
