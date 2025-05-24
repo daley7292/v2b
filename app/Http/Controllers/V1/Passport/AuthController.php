@@ -204,11 +204,10 @@ class AuthController extends Controller
                 $order->coupon_id = $couponService->getId();
             }
             $orderService->setOrderType($user);
-            if (!$order->save()) {
+            if (!$orderService->paid('system')) {
                 DB::rollback();
                 abort(500, __('Failed to update order amount'));
             }
-            OrderHandleJob::dispatchNow($order->trade_no);
         }
         //邀请人奖励
         DB::commit();
