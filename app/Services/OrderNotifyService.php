@@ -95,7 +95,20 @@ class OrderNotifyService
             $anotherInfo,
             $signupDate
         );
-
+        \Log::info('订单通知消息', [
+            'order_id' => $order->id,
+            'user_email' => $userEmail,
+            'plan_name' => $planName,
+            'type' => $type,
+            'period' => $period,
+            'discount' => $discountAmount,
+            'coupon_code' => $code,
+            'commission' => $getAmount,
+            'inviter_email' => $inviterEmail,
+            'extra_info' => $anotherInfo,
+            'signup_date' => $signupDate,
+            'message' => $message,
+        ]);
         $telegramService = new TelegramService();
         $telegramService->sendMessageWithAdmin($message, true);
     }
