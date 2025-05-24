@@ -16,7 +16,6 @@ use App\Services\PaymentService;
 use App\Services\PlanService;
 use App\Services\TelegramService;
 use App\Services\UserService;
-use App\Services\OrderNotifyService;
 use App\Utils\Helper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -187,7 +186,6 @@ class OrderController extends Controller
         if ($order->total_amount <= 0) {
             $orderService = new OrderService($order);
             if (!$orderService->paid($order->trade_no)) abort(500, '');
-            app(OrderNotifyService::class)->notify($order);
             return response([
                 'type' => -1,
                 'data' => true
