@@ -13,4 +13,8 @@ class User extends Model
         'created_at' => 'timestamp',
         'updated_at' => 'timestamp'
     ];
+    public function orders()
+    {
+        return $this->hasMany(Order::class, 'user_id', 'id');
+    }
 }
