@@ -20,7 +20,6 @@ class PassportRoute
             // Comm
             $router->post('/comm/sendEmailVerify', 'V1\\Passport\\CommController@sendEmailVerify');
             $router->post('/comm/pv', 'V1\\Passport\\CommController@pv');
-            $router->post('/redeem/register', 'V1\\Passport\\ApiController@register');
         });
     }
 }
